@@ -6,5 +6,5 @@ To host on local machine,
 - put your own aws credentials inside .aws directory
 
 To host on EC2
-- move all of the files to an EC2 instance
-- to the same run as above, then you will get your public IP
+- move all of the files to an EC2 instance with `scp -i keypair.pem -r aws-deploy-music-recognition ec2-user@{your_instance_ip}:~`
+- do the same run as on local machine above, then you will get your public IP
