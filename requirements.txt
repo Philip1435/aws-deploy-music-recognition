@@ -1,0 +1,7 @@
+librosa
+pyaudio
+streamlit
+numpy
+matplotlib
+pyyaml
+sagemaker
