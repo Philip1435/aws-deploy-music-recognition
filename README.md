@@ -13,3 +13,4 @@ To host on EC2
 Resources
 [spotify-dl](https://spotdl.readthedocs.io/en/latest/usage/)
 [deploy](https://github.com/aws-samples/amazon-sagemaker-fine-tune-and-deploy-wav2vec2-huggingface)
+[streamlit-audio](https://github.com/ayushkumarshah/Guitar-Chords-recognition/blob/master/app.py)
