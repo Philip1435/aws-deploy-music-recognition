@@ -30,6 +30,7 @@ def download_data_from_s3(sagemaker_session):
 
 
 def inference_handler(predictor, index, filenames):
+    print("inferenicing and calculating closest songs...")
     audio_array, sampling_rate = soundfile.read(WAVE_OUTPUT_FILE)
     json_request_data = {
         "speech_array": audio_array.tolist(),
@@ -41,7 +42,6 @@ def inference_handler(predictor, index, filenames):
     
     x = json.loads(prediction.decode('utf-8'))
     xq = np.array([json.loads(x[0])])
-    print(xq.shape)
 
     k = 3
     _, k_index = index.search(xq, k) 
@@ -88,8 +88,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    # for i in range(100):
-    #   # Update the progress bar with each iteration.
-    #   latest_iteration.text(f'Iteration {i+1}')
-    #   bar.progress(i + 1)
-    #   time.sleep(0.1)
