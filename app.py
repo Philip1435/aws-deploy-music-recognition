@@ -1,36 +1,68 @@
-import time, os
+import os
 import logging
 import streamlit as st
 import numpy as np
 import librosa, librosa.display
-import matplotlib.pyplot as plt
+import json
+import soundfile
+import faiss
 from settings import DURATION, WAVE_OUTPUT_FILE, ENDPOINT_NAME
 from src.sound import sound
-import soundfile
 from sagemaker.predictor import Predictor
-import boto3
-import json
-import sagemaker
+from sagemaker.s3 import S3Downloader
+from sagemaker.session import Session
+
 
 logger = logging.getLogger('app')
 
 
-def display(spectrogram, format):
-    plt.figure(figsize=(10, 4))
-    librosa.display.specshow(spectrogram, y_axis='mel', x_axis='time')
-    plt.title('Mel-frequency spectrogram')
-    plt.colorbar(format=format)
-    plt.tight_layout()
-    st.pyplot(clear_figure=False)
+def download_data_from_s3(sagemaker_session):
+    S3Downloader.download(
+        s3_uri='s3://wav2vec2-music-recognition/songs_db_filenames.npy',
+        local_path='.',
+        sagemaker_session=sagemaker_session
+    )
+    S3Downloader.download(
+        s3_uri='s3://wav2vec2-music-recognition/songs_db.index',
+        local_path='.',
+        sagemaker_session=sagemaker_session,
+    )
+
+
+def inference_handler(predictor, index, filenames):
+    audio_array, sampling_rate = soundfile.read(WAVE_OUTPUT_FILE)
+    json_request_data = {
+        "speech_array": audio_array.tolist(),
+        "sampling_rate": sampling_rate
+        }
+    
+    with st.spinner("Classifying the chord"):
+        prediction = predictor.predict(json.dumps(json_request_data).encode('utf-8'))
+    
+    x = json.loads(prediction.decode('utf-8'))
+    xq = np.array([json.loads(x[0])])
+    print(xq.shape)
+
+    k = 3
+    _, k_index = index.search(xq, k) 
+    return [filenames[index] for index in k_index[0]]
+
 
 def main():
+    sagemaker_session = Session()
+    os.environ['AWS_PROFILE'] = "default"
+    os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-1'
+    endpoint_name = "huggingface-wav2vec2-endpoint-1709692846"
 
-    BUCKET="wav2vec2-music-recognition" # please use your bucket name
+
+    download_data_from_s3(sagemaker_session)
+    predictor = Predictor(endpoint_name=endpoint_name)
+    index = faiss.read_index("songs_db.index")
+    filenames = np.load("songs_db_filenames.npy")
+
 
     title = "Music Recognition Demo"
     st.title(title)
-    runtime = boto3.client('sagemaker-runtime', 'ap-southeast-1')
-
 
     if st.button('Record'):
         with st.spinner(f'Recording for {DURATION} seconds ....'):
@@ -47,29 +79,12 @@ def main():
             st.write("Please record sound first")
 
     if st.button('Classify'):
-        audio_array, sampling_rate = soundfile.read(WAVE_OUTPUT_FILE)
-        json_request_data = {
-            "speech_array": audio_array.tolist(),
-            "sampling_rate": sampling_rate
-            }
-        
-        with st.spinner("Classifying the chord"):
-            response = runtime.invoke_endpoint(
-                EndpointName=ENDPOINT_NAME,
-                ContentType='application/json',
-                Body=json.dumps(json_request_data).encode('utf-8')
-            )
-            # prediction = predictor.predict(json.dumps(json_request_data).encode('utf-8'))
-            # xq = json.loads(response['Body'])
-        
-        res = response['Body'].read().decode('utf-8')
-
-        
+        top_k_songs = inference_handler(predictor, index, filenames)
         st.success("Classification completed")
+        st.write("### These are top possible songs ###")
+        for name in top_k_songs:
+            st.markdown("- " + name)
 
-        st.write("### The recorded chord is **" + "**")
-
-        st.write("\n")
 
 if __name__ == '__main__':
     main()
