@@ -5,4 +5,4 @@ numpy
 matplotlib
 pyyaml
 sagemaker
-faiss-cpu=1.8.0
+faiss-cpu==1.8.0
